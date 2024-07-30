@@ -1,16 +1,4 @@
 # invisitactoe
 
-A new Flutter project.
-
-## Getting Started
-
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+A flutter TicTacToe application with a catch. The tiles vanish after you make your move so you will have to remember the board state. Making an invalid move will cost you a turn. 
+There are two playable modes. One is a 2 player mode where you can play both sides. There is also a Bot mode where you play against an AI that runs on the Minimax algorithm. The bot plays the game optimally so a win is impossible.
