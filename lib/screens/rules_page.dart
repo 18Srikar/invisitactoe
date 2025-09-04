@@ -1,0 +1,51 @@
+import 'package:flutter/material.dart';
+import 'package:invisitactoe/widgets/paper_button.dart';
+
+class RulesPage extends StatelessWidget {
+  const RulesPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    return Scaffold(
+      body: Stack(
+        children: [
+          // Persistent-feeling notebook background (shared Hero tag)
+          const Positioned.fill(
+            child: Hero(
+              tag: '__notebook_bg__',
+              child: Image(
+                image: AssetImage('assets/images/notebook_bg.jpg'),
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+
+          // Rules image in the center
+          Center(
+            child: Image.asset(
+              'assets/images/rules_overlay.png',
+              width: screenWidth * 0.85,
+              fit: BoxFit.contain,
+            ),
+          ),
+
+          // Custom handwritten back arrow PNG
+          Positioned(
+            top: 30,
+            left: 30,
+            child: PaperButton(
+              onTap: () => Navigator.pop(context),
+              child: Image.asset(
+                'assets/images/back_arrow_handwritten.png',
+                width: 40,
+                height: 40,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

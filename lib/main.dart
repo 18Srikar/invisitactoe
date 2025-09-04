@@ -15,8 +15,17 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title:'InvisiTacToe',
       themeMode: ThemeMode.dark,
-      theme: ThemeData.dark(
+      theme: ThemeData(
         useMaterial3: true,
+        pageTransitionsTheme: const PageTransitionsTheme(
+      builders: {
+        TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.windows: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.linux: CupertinoPageTransitionsBuilder(),
+      },
+      ),
       ),
       home: const HomePage(title:'InvisiTacToe'),
       debugShowCheckedModeBanner: false,

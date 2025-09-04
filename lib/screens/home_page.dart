@@ -1,40 +1,155 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'dart:math';
+import 'dart:async';
+
 import 'package:invisitactoe/screens/bot_player.dart';
 import 'package:invisitactoe/screens/two_player.dart';
-import 'package:flutter/services.dart';
-class HomePage extends StatelessWidget {
-    final String title; // Add this line to declare the title parameter
+import 'package:invisitactoe/screens/rules_page.dart';
+import 'package:invisitactoe/widgets/paper_button.dart';
 
-  const HomePage({required this.title}); // Constructor that accepts the title
+class HomePage extends StatefulWidget {
+  final String title;
+
+  const HomePage({required this.title});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  // Random number generator for the jittering motion
+  final _random = Random();
+  late Timer _timer;
+
+  // Variables to hold the current random offsets for the two-player button
+  double _twoPlayerXOffset = 0.0;
+  double _twoPlayerYOffset = 0.0;
+  
+  // Variables to hold the current random offsets for the bot button
+  // double _botXOffset = 0.0;
+  // double _botYOffset = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    // Start a periodic timer to update the button positions
+    _timer = Timer.periodic(const Duration(milliseconds: 300), (timer) {
+      setState(() {
+        // Generate new random offsets for the two-player button
+        _twoPlayerXOffset = _random.nextDouble() * 4 - 2; // Random value between -2 and 2
+        _twoPlayerYOffset = _random.nextDouble() * 4 - 2;
+
+        // // Generate new random offsets for the bot button
+        // _botXOffset = _random.nextDouble() * 4 - 2; // Random value between -2 and 2
+        // _botYOffset = _random.nextDouble() * 4 - 2;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    // Cancel the timer when the widget is disposed to prevent memory leaks
+    _timer.cancel();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Precache the background so Hero switches are seamless
+    precacheImage(const AssetImage('assets/images/notebook_bg.jpg'), context);
+
+    final screenWidth = MediaQuery.of(context).size.width;
+    final safeTop = MediaQuery.of(context).padding.top;
+
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Padding(
-              padding: EdgeInsets.all(10.0),
-              child: Text('TicTacToe with a twist! The tiles become invisible after you make your move so you\'ll have to remember the grid! If you try to make a move on an occupied tile you\'ll lose your turn, so beware!'),
+      body: Stack(
+        children: [
+          // Persistent-feeling background (shared Hero across pages)
+          const Positioned.fill(
+            child: Hero(
+              tag: '__notebook_bg__',
+              child: Image(
+                image: AssetImage('assets/images/notebook_bg.jpg'),
+                fit: BoxFit.cover,
+              ),
             ),
-            ElevatedButton(
-              onPressed: (){
+          ),
+
+
+          // Foreground content (center buttons)
+          Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Image.asset(
+                  'assets/images/title_handwritten.png',
+                  width: screenWidth * 0.6, // responsive sizing
+                  fit: BoxFit.contain,
+                ),
+                 SizedBox(height: screenWidth * 0.12), // spacing
+                // Two-player button with animation
+                PaperButton(
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => TwoPlayerPage()),
+                    );
+                  },
+                  child: Transform.translate(
+                    offset: Offset(_twoPlayerXOffset, _twoPlayerYOffset),
+                    child: Image.asset(
+                      'assets/images/btn_two_player.png',
+                      width: screenWidth * 0.45,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+                 SizedBox(height: screenWidth * 0.07),
+
+                // Bot mode button with animation
+                PaperButton(
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => TicTacToePage()),
+                    );
+                  },
+                  child: Transform.translate(
+                    offset: Offset(-_twoPlayerXOffset, -_twoPlayerYOffset), // Opposite animation
+                    child: Image.asset(
+                      'assets/images/btn_bot_mode.png',
+                      width: screenWidth * 0.35,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Question mark (top-right → rules page)
+          Positioned(
+            top: safeTop + 12,
+            right: 20,
+            child: PaperButton(
+              onTap: () {
                 HapticFeedback.lightImpact();
-                Navigator.push(context, MaterialPageRoute(builder: (context) => TwoPlayerPage()),); // Navigate to bot mode
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const RulesPage()),
+                );
               },
-              child: const Text('2- Player Mode'),
+              child: Image.asset(
+                'assets/images/question_mark.png',
+                width: 50,
+                height: 50,
+              ),
             ),
-            SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                HapticFeedback.lightImpact();
-                Navigator.push(context, MaterialPageRoute(builder: (context) => TicTacToePage()),); // Navigate to 2-player mode
-              },
-              child: Text('Bot Mode'),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
