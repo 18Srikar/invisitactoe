@@ -1,5 +1,5 @@
 name: invisitactoe
-description: "A new Flutter project."
+description: "Vanishing Tic Tac Toe."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -28,9 +28,10 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
+  flutter_launcher_icons: ^0.13.1
   flutter:
     sdk: flutter
-  audioplayers: ^1.0.1
+  audioplayers: ^6.5.0
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -57,9 +58,43 @@ flutter:
   uses-material-design: true
 
   # To add assets to your application, add an assets section, like this:
-assets:
-    - assets/tick.mp3
-    - assets/tock.mp3
+  assets:
+    - assets/images/
+    - assets/audio/
+    # - assets/audio/x_scribble_1.mp3
+    # - assets/audio/o_scribble_1.mp3
+    # - assets/audio/x_scribble_2.mp3
+    # - assets/audio/o_scribble_2.mp3
+    # - assets/images/notebook_bg.jpg
+    # - assets/images/title_handwritten.png
+    # - assets/images/btn_two_player.png
+    # - assets/images/btn_bot_mode.png
+    # - assets/images/rules_overlay.png
+    # - assets/images/question_mark.png
+    # - assets/images/back_arrow_handwritten.png
+    # - assets/images/grid.png
+    # - assets/images/reset.png
+    # - assets/images/invalid_move_x_loses_a_turn.png
+    # - assets/images/invalid_move_o_loses_a_turn.png
+    # - assets/images/the_only_way_to_win.png
+    # - assets/images/x1.png
+    # - assets/images/x2.png
+    # - assets/images/x3.png
+    # - assets/images/x4.png
+    # - assets/images/x5.png
+    # - assets/images/o1.png
+    # - assets/images/o2.png
+    # - assets/images/o3.png
+    # - assets/images/o4.png
+    # - assets/images/x_wins_o_loses.png
+    # - assets/images/o_wins_x_loses.png
+    # - assets/images/your_move_x.png
+    # - assets/images/your_move_o.png
+    # - assets/images/my_move.png
+    # - assets/images/your_move.png
+    # - assets/images/its_a_draw.png
+    # - assets/images/draw.png
+
     # - images/a_dot_burr.jpeg
     # - images/a_dot_ham.jpeg
 
@@ -88,3 +123,17 @@ assets:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/custom-fonts/#from-packages
+flutter_launcher_icons:
+  android: true
+  ios: true
+
+  # REQUIRED base images (pick one global, or both platform-specific).
+  # We'll point both to your photo so legacy icons generate too.
+  image_path_android: assets/icon_bg.png
+  image_path_ios: assets/icon_bg.png
+  remove_alpha_ios: true
+
+  # ANDROID adaptive icon: background = your photo, foreground = transparent
+  adaptive_icon_background: assets/icon_bg.png
+  adaptive_icon_foreground: assets/icon_fg_empty.png   # 100% transparent PNG (same size)
+  adaptive_icon_monochrome: assets/icon_fg_empty.png   # optional; avoids weird themed icon
