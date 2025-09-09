@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'dart:math';
 import 'dart:async';
 
+import 'package:invisitactoe/widgets/background_manager.dart';
 import 'package:invisitactoe/screens/bot_player.dart';
 import 'package:invisitactoe/screens/two_player.dart';
 import 'package:invisitactoe/screens/rules_page.dart';
@@ -57,7 +58,12 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     // Precache the background so Hero switches are seamless
-    precacheImage(const AssetImage('assets/images/notebook_bg.jpg'), context);
+    precacheImage(AssetImage(BackgroundManager.current), context);
+    precacheImage(const AssetImage('assets/images/btn_bot_mode.png'), context);
+    precacheImage(const AssetImage('assets/images/btn_two_player.png'), context);
+    precacheImage(const AssetImage('assets/images/question_mark.png'), context);
+    precacheImage(const AssetImage('assets/images/back_arrow_handwritten.png'), context);
+    precacheImage(const AssetImage('assets/images/title_handwritten.png'), context);
 
     final screenWidth = MediaQuery.of(context).size.width;
     final safeTop = MediaQuery.of(context).padding.top;
@@ -66,13 +72,11 @@ class _HomePageState extends State<HomePage> {
       body: Stack(
         children: [
           // Persistent-feeling background (shared Hero across pages)
-          const Positioned.fill(
+           Positioned.fill(
             child: Hero(
               tag: '__notebook_bg__',
-              child: Image(
-                image: AssetImage('assets/images/notebook_bg.jpg'),
-                fit: BoxFit.cover,
-              ),
+              child: Image.asset( BackgroundManager.current,
+      fit: BoxFit.cover,)
             ),
           ),
 
