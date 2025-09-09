@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:invisitactoe/widgets/background_manager.dart';
 import 'package:invisitactoe/widgets/paper_button.dart';
-
 class RulesPage extends StatelessWidget {
   const RulesPage({super.key});
 
@@ -12,13 +12,11 @@ class RulesPage extends StatelessWidget {
       body: Stack(
         children: [
           // Persistent-feeling notebook background (shared Hero tag)
-          const Positioned.fill(
+          Positioned.fill(
             child: Hero(
               tag: '__notebook_bg__',
-              child: Image(
-                image: AssetImage('assets/images/notebook_bg.jpg'),
-                fit: BoxFit.cover,
-              ),
+              child: Image.asset(BackgroundManager.current,
+                  fit: BoxFit.cover)
             ),
           ),
 
