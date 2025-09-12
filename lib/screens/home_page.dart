@@ -8,6 +8,7 @@ import 'package:invisitactoe/screens/bot_player.dart';
 import 'package:invisitactoe/screens/two_player.dart';
 import 'package:invisitactoe/screens/rules_page.dart';
 import 'package:invisitactoe/widgets/paper_button.dart';
+import 'package:invisitactoe/screens/online_lobby_page.dart';
 
 class HomePage extends StatefulWidget {
   final String title;
@@ -130,6 +131,15 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
                 ),
+                PaperButton(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const OnlineLobbyPage()),
+                          );
+                        },
+                        child: const Text('Play Online'),
+                      ),
               ],
             ),
           ),

@@ -2,8 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:invisitactoe/screens/home_page.dart';
 import 'package:flutter/services.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'firebase_options.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+    await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  await FirebaseAuth.instance.signInAnonymously();
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
   // Let your SFX mix with Spotify/YouTube Music instead of stopping them
