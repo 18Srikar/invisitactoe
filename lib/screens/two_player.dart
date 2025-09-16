@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:invisitactoe/widgets/paper_button.dart';
 import 'package:invisitactoe/widgets/background_manager.dart';
+import 'package:invisitactoe/widgets/paper_jitter.dart';
 
 // NEW: shared logic
 import 'package:invisitactoe/game_logic/game_engine.dart';
@@ -228,7 +229,9 @@ class _TwoPlayerPageState extends State<TwoPlayerPage> {
                   SizedBox(height: screenWidth * 0.04),
                   PaperButton(
                     onTap: resetGame,
-                    child: Image.asset('assets/images/reset.png', height: screenWidth * 0.1),
+                    child: PaperJitter(
+                                  active: s.ended,
+                                  child:Image.asset('assets/images/reset.png', height: screenWidth * 0.1),),
                   ),
                 ],
               ),

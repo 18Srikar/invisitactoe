@@ -5,7 +5,8 @@ import 'dart:math';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:invisitactoe/widgets/paper_button.dart';
 import 'package:invisitactoe/widgets/background_manager.dart';
-
+import 'package:invisitactoe/widgets/ellipsis_banner.dart';
+import 'package:invisitactoe/widgets/paper_jitter.dart';
 // online controller + shared logic
 import 'package:invisitactoe/game_logic/online_controller.dart';
 import 'package:invisitactoe/game_logic/game_engine.dart';
@@ -31,7 +32,7 @@ class _OnlineMatchPageState extends State<OnlineMatchPage> {
   late final VoidCallback _stateListener;
 
   // UI state
-  int textVisibleDuration = 500;
+  int textVisibleDuration = 900; // linger status/penalty a bit longer
   List<double> tileOpacities = List.generate(9, (index) => 0.0);
   List<String?> tileImages = List.generate(9, (index) => null);
 
@@ -41,14 +42,35 @@ class _OnlineMatchPageState extends State<OnlineMatchPage> {
   final List<String> oImages = [
     'assets/images/o1.png','assets/images/o2.png','assets/images/o3.png','assets/images/o4.png',
   ];
-  // NOTE: keep the same relative paths that work in your local mode
   final List<String> xSounds = ['audio/x_scribble_1.wav','audio/x_scribble_2.wav'];
   final List<String> oSounds = ['audio/o_scribble_1.wav','audio/o_scribble_2.wav'];
 
-  final Random _random = Random(); // pick sound variant
-  String? statusImagePath;         // temporary image banner (win/draw/penalty)
-  String? statusTextMessage;       // persistent text (opponent left / errors)
-  double statusOpacity = 1.0;      // fade only the status area (not the turn banner)
+  final Random _random = Random();
+  String? statusImagePath;
+  String? statusTextMessage;
+  double statusOpacity = 1.0;
+
+  // Once both were present at least once, never show the "waiting" overlay again
+  bool _everReady = false;
+
+  // Opponent-turn dots animation (…)
+  Timer? _dotsTimer;
+  int _dotsStep = 0;     // 0,1,2 -> shows 1,2,3 dots
+  bool _dotsActive = false;
+
+  void _setDotsActive(bool active) {
+    if (_dotsActive == active) return;
+    _dotsActive = active;
+    _dotsTimer?.cancel();
+    if (active) {
+      _dotsTimer = Timer.periodic(const Duration(milliseconds: 300), (_) {
+        if (!mounted) return;
+        setState(() {
+          _dotsStep = (_dotsStep + 1) % 3;
+        });
+      });
+    }
+  }
 
   @override
   void initState() {
@@ -58,11 +80,16 @@ class _OnlineMatchPageState extends State<OnlineMatchPage> {
     _prev = controller.value;
     _stateListener = _onStateChanged;
     controller.addListener(_stateListener);
+
+    // Mark presence when entering this page
+    controller.setPresence(true);
   }
 
   @override
   void dispose() {
     controller.removeListener(_stateListener);
+    controller.setPresence(false); // best-effort
+    _dotsTimer?.cancel();
     controller.dispose();
     super.dispose();
   }
@@ -73,7 +100,17 @@ class _OnlineMatchPageState extends State<OnlineMatchPage> {
     final cur = controller.value;
     final prev = _prev;
 
-    // Detect remote reset -> clear local UI
+    // Latch: if we ever reach "ready", remember it
+    if (controller.isReady) {
+      _everReady = true;
+    }
+
+    // If the game ended (any reason), stop dots immediately
+    if (cur.ended) {
+      _setDotsActive(false);
+    }
+
+    // Detect remote reset -> clear local UI (but don't reset _everReady)
     if (prev != null) {
       final prevHadAny = _boardHasAny(prev.board);
       final nowHasAny = _boardHasAny(cur.board);
@@ -91,7 +128,7 @@ class _OnlineMatchPageState extends State<OnlineMatchPage> {
       }
     }
 
-    // Draw last move (deterministic art per cell index to avoid mismatch/flicker)
+    // Draw last move + play sound
     final lm = cur.lastMove;
     if (lm != null && (prev == null || prev.lastMove != lm)) {
       if (cur.board[lm] != Cell.empty) {
@@ -101,12 +138,17 @@ class _OnlineMatchPageState extends State<OnlineMatchPage> {
               : oImages[lm % oImages.length];
           tileOpacities[lm] = 1.0;
         });
+        if (cur.board[lm] == Cell.x) {
+          _playXSound();
+        } else if (cur.board[lm] == Cell.o) {
+          _playOSound();
+        }
         _fadeTileLater(lm);
       }
     }
 
-    // Remote game end -> show ending banner, reveal tiles
-    if ((prev == null || !prev.ended) && cur.ended) {
+    // Normal game end -> banner (leave-case handled by early-return in build)
+    if ((prev == null || !prev.ended) && cur.ended && !controller.endedByLeave) {
       _revealAllTiles();
       setState(() {
         statusImagePath = cur.winner == Player.x
@@ -119,7 +161,7 @@ class _OnlineMatchPageState extends State<OnlineMatchPage> {
       });
     }
 
-    // One-shot system notice (opponent left etc.) — persistent
+    // One-shot system notice (we still let build() decide what to show)
     final notice = controller.systemMessage;
     if (notice != null) {
       setState(() {
@@ -130,24 +172,29 @@ class _OnlineMatchPageState extends State<OnlineMatchPage> {
       controller.clearSystemMessage();
     }
 
-    _prev = cur;
-  }
-
-  // === helpers ===
-  void _showTempStatusImage(String asset) {
-    setState(() {
-      statusImagePath = asset;
-      statusTextMessage = null;
-      statusOpacity = 1.0;
-    });
-    // auto-fade away; (does NOT affect the turn banner)
-    Timer(Duration(milliseconds: textVisibleDuration), () {
-      if (!mounted) return;
+    // One-shot penalty banner from Firestore (appears on BOTH phones)
+    final p = controller.penaltyBy;
+    if (p != null) {
       setState(() {
-        statusOpacity = 0.0;
-        statusImagePath = null;
+        statusImagePath = (p == 'x')
+            ? 'assets/images/invalid_move_x_loses_a_turn.png'
+            : 'assets/images/invalid_move_o_loses_a_turn.png';
+        statusTextMessage = null;
+        statusOpacity = 1.0;
       });
-    });
+      // Keep penalty a little longer than generic messages
+      const penaltyHoldMs = 1100;
+      Timer(const Duration(milliseconds: penaltyHoldMs), () {
+        if (!mounted) return;
+        setState(() {
+          statusOpacity = 0.0;
+          statusImagePath = null;
+        });
+      });
+      controller.ackPenalty();
+    }
+
+    _prev = cur;
   }
 
   void _fadeTileLater(int index) {
@@ -161,7 +208,6 @@ class _OnlineMatchPageState extends State<OnlineMatchPage> {
     setState(() { for (var i=0;i<tileOpacities.length;i++) tileOpacities[i] = 1.0; });
   }
 
-  // Same sound strategy as your local page (works on your devices)
   void _playXSound() async {
     try {
       final p = AudioPlayer();
@@ -181,7 +227,7 @@ class _OnlineMatchPageState extends State<OnlineMatchPage> {
   void buttonPress(int index) {
     final s = controller.value;
 
-    // must be ready (both joined) AND my turn
+    // must be ready (both joined & present) AND my turn
     final isReady = controller.isReady;
     final me = controller.localPlayer;
     final isMyTurn = (me != null && me == s.turn);
@@ -195,25 +241,13 @@ class _OnlineMatchPageState extends State<OnlineMatchPage> {
     // invalid move -> penalty
     if (s.board[index] != Cell.empty) {
       HapticFeedback.vibrate();
-      _showTempStatusImage(
-        s.turn == Player.x
-            ? 'assets/images/invalid_move_x_loses_a_turn.png'
-            : 'assets/images/invalid_move_o_loses_a_turn.png',
-      );
       controller.forfeitTurn();
       return;
     }
 
-    // valid move
-    if (s.turn == Player.x) {
-      _playXSound();
-    } else {
-      _playOSound();
-    }
-
+    // valid move: optimistic fade-in; sound will play on snapshot
     setState(() {
       tileOpacities[index] = 1.0;
-      // deterministic art to match both devices
       tileImages[index] = s.turn == Player.x
           ? xImages[index % xImages.length]
           : oImages[index % oImages.length];
@@ -224,14 +258,7 @@ class _OnlineMatchPageState extends State<OnlineMatchPage> {
   }
 
   void _onPressReset() {
-    // Only visible when s.ended; controller.reset() is async void by design
-    setState(() {
-      statusTextMessage = 'Resetting…';
-      statusImagePath = null;
-      statusOpacity = 1.0;
-    });
-    controller.reset();
-    // Snapshot listener will clear tiles when the board becomes empty.
+    controller.reset(); // no "Resetting..." text
   }
 
   @override
@@ -241,19 +268,78 @@ class _OnlineMatchPageState extends State<OnlineMatchPage> {
       builder: (context, _) {
         final s = controller.value;
         final isReady = controller.isReady;
+
+        // Treat as "opponent left" if:
+        // 1) ended-by-leave, OR 2) room closed message, OR
+        // 3) we were ready at least once and are NOT ready now (covers race/flicker).
+        final systemMsg = (controller.systemMessage ?? '').toLowerCase();
+        final bool opponentLeft =
+            controller.endedByLeave ||
+            systemMsg.contains('room closed') ||
+            (_everReady && !isReady);
+
+        if (opponentLeft) {
+          final screenWidth = MediaQuery.of(context).size.width;
+          final safeTop = MediaQuery.of(context).padding.top;
+          _setDotsActive(false); // stop dots
+          return Stack(
+            children: [
+              Positioned.fill(
+                child: Hero(
+                  tag: '__notebook_bg__',
+                  child: SizedBox.expand(
+                    child: Image.asset(BackgroundManager.current, fit: BoxFit.cover),
+                  ),
+                ),
+              ),
+              Center(
+                child: Image.asset(
+                  'assets/images/opponent_left.png',
+                  height: screenWidth * 0.10,
+                ),
+              ),
+              // BACK BUTTON LAST → always on top (works even over overlays)
+              Positioned(
+                top: safeTop + 12,
+                left: 25,
+                child: PaperButton(
+                  onTap: () async {
+                    try { await controller.leave(); } catch (_) {}
+                    if (mounted) Navigator.pop(context);
+                  },
+                  child: Image.asset('assets/images/back_arrow_handwritten.png', width: 40, height: 40),
+                ),
+              ),
+            ],
+          );
+        }
+
+        // Waiting overlay only BEFORE both have ever been ready
+        final waiting = (!_everReady && !isReady && !s.ended && controller.systemMessage == null);
+        final gridOpacity = waiting ? 0.35 : 1.0;
+
         final me = controller.localPlayer;
         final isMyTurn = (me != null && me == s.turn);
         final isXTurn = s.turn == Player.x;
-
-        // Turn banner: derived ONLY from state (no shared opacity flags)
-        final showBanner = isReady && isMyTurn;
 
         final screenWidth = MediaQuery.of(context).size.width;
         final boardSize = screenWidth * 0.90;
         final tileSize = boardSize / 3;
         final safeTop = MediaQuery.of(context).padding.top;
 
-        final showReset = s.ended; // Option A: only after end
+        // Fixed heights to prevent layout shift
+        final bannerH = screenWidth * 0.08;
+        final resetH = screenWidth * 0.10;
+
+        // Reset visible only if ended AND not ended-by-leave
+        // final showReset = s.ended && !controller.endedByLeave;
+
+        // Show banner ONLY when ready, not ended, and it's my turn.
+        final showBanner = isReady && !s.ended && isMyTurn;
+
+        // Dots animate only when ready, not ended, and it's opponent's turn
+        final showOpponentDots = isReady && !s.ended && !isMyTurn;
+        _setDotsActive(showOpponentDots && mounted);
 
         return Stack(
           children: <Widget>[
@@ -265,37 +351,41 @@ class _OnlineMatchPageState extends State<OnlineMatchPage> {
                 ),
               ),
             ),
-            Positioned(
-              top: safeTop + 12,
-              left: 25,
-              child: PaperButton(
-                onTap: () async {
-                  try { await controller.leave(); } catch (_) {}
-                  if (mounted) Navigator.pop(context);
-                },
-                child: Image.asset('assets/images/back_arrow_handwritten.png', width: 40, height: 40),
-              ),
-            ),
             Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: <Widget>[
                   SizedBox(height: screenWidth * 0.02),
 
-                  // Turn banner (never blocked by status messages)
-                  AnimatedOpacity(
-                    opacity: showBanner ? 1.0 : 0.0,
-                    duration: const Duration(milliseconds: 200),
-                    curve: Curves.easeInOut,
-                    child: Image.asset(
-                      isXTurn ? 'assets/images/your_move_x.png' : 'assets/images/your_move_o.png',
-                      height: screenWidth * 0.08,
+                  // Turn banner slot:
+                  SizedBox(
+                    height: bannerH,
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      switchInCurve: Curves.easeOut,
+                      switchOutCurve: Curves.easeIn,
+                      child: showBanner
+                          ? Align(
+                              key: const ValueKey('banner-my-turn'),
+                              alignment: Alignment.center,
+                              child: Image.asset(
+                                isXTurn ? 'assets/images/your_move_x.png' : 'assets/images/your_move_o.png',
+                                height: bannerH,
+                              ),
+                            )
+                          : showOpponentDots
+                              ? _DotsBanner(
+                                  key: const ValueKey('banner-opponent-dots'),
+                                  height: bannerH,
+                                  step: _dotsStep, // 0..2
+                                )
+                              : const SizedBox(key: ValueKey('banner-empty')),
                     ),
                   ),
 
                   SizedBox(height: screenWidth * 0.02),
 
-                  // Status area: image OR persistent text
+                  // Status area
                   AnimatedOpacity(
                     opacity: (statusImagePath != null || statusTextMessage != null) ? statusOpacity : 0.0,
                     duration: Duration(milliseconds: textVisibleDuration * 2),
@@ -305,7 +395,7 @@ class _OnlineMatchPageState extends State<OnlineMatchPage> {
                       child: Builder(
                         builder: (_) {
                           if (statusImagePath != null) {
-                            return Image.asset(statusImagePath!, height: screenWidth * 0.08);
+                            return Image.asset(statusImagePath!, height: bannerH);
                           }
                           if (statusTextMessage != null) {
                             return Text(
@@ -319,7 +409,7 @@ class _OnlineMatchPageState extends State<OnlineMatchPage> {
                               ),
                             );
                           }
-                          return SizedBox(height: screenWidth * 0.08);
+                          return SizedBox(height: bannerH);
                         },
                       ),
                     ),
@@ -327,90 +417,158 @@ class _OnlineMatchPageState extends State<OnlineMatchPage> {
 
                   SizedBox(height: screenWidth * 0.02),
 
-                  // Board
-                  Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Image.asset('assets/images/grid.png', width: boardSize, height: boardSize),
-                      SizedBox(
-                        width: boardSize, height: boardSize,
-                        child: GridView.builder(
-                          physics: const NeverScrollableScrollPhysics(),
-                          primary: false,
-                          padding: EdgeInsets.zero,
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3),
-                          itemCount: 9,
-                          itemBuilder: (context, index) {
-                            return GestureDetector(
-                              onTap: (s.ended || !isReady || !isMyTurn) ? null : () => buttonPress(index),
-                              child: Container(
-                                color: Colors.transparent,
-                                child: Stack(
-                                  alignment: Alignment.center,
-                                  children: [
-                                    if (tileImages[index] != null)
-                                      AnimatedOpacity(
-                                        opacity: tileOpacities[index],
-                                        duration: Duration(milliseconds: textVisibleDuration),
-                                        child: Image.asset(
-                                          tileImages[index]!,
-                                          width: tileSize * 0.3, height: tileSize * 0.3,
+                  // Board (dims while waiting)
+                  AnimatedOpacity(
+                    opacity: gridOpacity,
+                    duration: const Duration(milliseconds: 200),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Image.asset('assets/images/grid.png', width: boardSize, height: boardSize),
+                        SizedBox(
+                          width: boardSize, height: boardSize,
+                          child: GridView.builder(
+                            physics: const NeverScrollableScrollPhysics(),
+                            primary: false,
+                            padding: EdgeInsets.zero,
+                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3),
+                            itemCount: 9,
+                            itemBuilder: (context, index) {
+                              return GestureDetector(
+                                onTap: (s.ended || !isReady || !isMyTurn) ? null : () => buttonPress(index),
+                                child: Container(
+                                  color: Colors.transparent,
+                                  child: Stack(
+                                    alignment: Alignment.center,
+                                    children: [
+                                      if (tileImages[index] != null)
+                                        AnimatedOpacity(
+                                          opacity: tileOpacities[index],
+                                          duration: Duration(milliseconds: textVisibleDuration),
+                                          child: Image.asset(
+                                            tileImages[index]!,
+                                            width: tileSize * 0.3,
+                                            height: tileSize * 0.3,
+                                          ),
                                         ),
-                                      ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            );
-                          },
+                              );
+                            },
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
 
                   SizedBox(height: screenWidth * 0.03),
 
-                  if (showReset)
-                    PaperButton(
-                      onTap: _onPressReset,
-                      child: Image.asset('assets/images/reset.png', height: screenWidth * 0.1),
+                  // Reset area — fixed-height slot (prevents layout shift when it appears)
+                  SizedBox(
+                    height: resetH,
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      switchInCurve: Curves.easeOut,
+                      switchOutCurve: Curves.easeIn,
+                      child: (s.ended && !controller.endedByLeave)
+                          ? Center(
+                              key: const ValueKey('reset-visible'),
+                              child: PaperButton(
+                                onTap: _onPressReset,
+                                child: PaperJitter(
+                                  active: s.ended && !controller.endedByLeave,
+                                  child: Image.asset('assets/images/reset.png', height: resetH), 
+                                  ),
+                              ),
+                            )
+                          : const SizedBox(
+                              key: ValueKey('reset-hidden'),
+                            ),
                     ),
+                  ),
                 ],
               ),
             ),
 
-            // Waiting overlay until both players join — blocks taps
-            if (!isReady)
+            // Waiting overlay — only before the first time both are ready
+            if (waiting)
               Positioned.fill(
                 child: AbsorbPointer(
                   absorbing: true,
                   child: Container(
                     color: Colors.black.withOpacity(0.15),
                     child: Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: const [
-                          SizedBox(height: 8),
-                          CircularProgressIndicator(),
-                          SizedBox(height: 12),
-                          Text(
-                            'Waiting for the other player to join…',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
-                              shadows: [Shadow(blurRadius: 2, color: Colors.black45)],
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
+                      child: EllipsisBanner(
+                        phraseAsset: 'assets/images/waiting_for_player.png',
+                        dotAssets: const [
+                          'assets/images/dot1.png',
+                          'assets/images/dot2.png',
+                          'assets/images/dot3.png',
                         ],
+                        height: screenWidth * 0.1,
+                        step: const Duration(milliseconds: 300),
+                        dotScale: 0.20,
+                        spacing: 6,
+                        dotsBelow: false,
                       ),
                     ),
                   ),
                 ),
               ),
+
+            // BACK BUTTON LAST → rendered on top of everything (including overlay)
+            Positioned(
+              top: safeTop + 12,
+              left: 25,
+              child: PaperButton(
+                onTap: () async {
+                  try { await controller.leave(); } catch (_) {}
+                  if (mounted) Navigator.pop(context);
+                },
+                child: Image.asset('assets/images/back_arrow_handwritten.png', width: 40, height: 40),
+              ),
+            ),
           ],
         );
       },
+    );
+  }
+}
+
+// Lightweight, self-contained dots banner used in the turn-banner slot.
+// Shows 1, 2, 3 hand-drawn dots in a loop without shifting layout.
+class _DotsBanner extends StatelessWidget {
+  const _DotsBanner({super.key, required this.height, required this.step});
+
+  final double height;
+  final int step; // 0..2 -> number of dots = step+1
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleDots = step + 1; // 1..3
+    final dotSize = height * 0.22; // ~22% of banner height
+    const spacing = 6.0;
+
+    Widget dot(String asset, bool on) => AnimatedOpacity(
+          opacity: on ? 1.0 : 0.0,
+          duration: const Duration(milliseconds: 150),
+          curve: Curves.easeInOut,
+          child: Image.asset(asset, height: dotSize),
+        );
+
+    return SizedBox(
+      height: height,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          dot('assets/images/dot1.png', visibleDots >= 1),
+          SizedBox(width: spacing),
+          dot('assets/images/dot2.png', visibleDots >= 2),
+          SizedBox(width: spacing),
+          dot('assets/images/dot3.png', visibleDots >= 3),
+        ],
+      ),
     );
   }
 }

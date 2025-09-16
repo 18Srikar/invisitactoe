@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:invisitactoe/widgets/paper_button.dart';
 import 'package:invisitactoe/widgets/background_manager.dart';
+import 'package:invisitactoe/widgets/paper_jitter.dart';
 
 // Shared logic
 import 'package:invisitactoe/game_logic/game_engine.dart';
@@ -293,9 +294,11 @@ class _TicTacToePageState extends State<TicTacToePage> {
                   // Reset
                   PaperButton(
                     onTap: resetGame,
-                    child: Image.asset(
+                    child: PaperJitter(
+                                  active: s.ended,
+                                  child:Image.asset(
                       'assets/images/reset.png',
-                      height: screenWidth * 0.1,
+                      height: screenWidth * 0.1,),
                     ),
                   ),
                 ],

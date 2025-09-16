@@ -31,8 +31,8 @@ class RulesPage extends StatelessWidget {
 
           // Custom handwritten back arrow PNG
           Positioned(
-            top: 30,
-            left: 30,
+            top: 25,
+            left: 25,
             child: PaperButton(
               onTap: () => Navigator.pop(context),
               child: Image.asset(
