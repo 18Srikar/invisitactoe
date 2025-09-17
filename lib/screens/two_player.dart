@@ -1,12 +1,14 @@
+// lib/screens/two_player.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
 import 'dart:math';
-import 'package:audioplayers/audioplayers.dart';
+
 import 'package:invisitactoe/widgets/paper_button.dart';
 import 'package:invisitactoe/widgets/background_manager.dart';
 import 'package:invisitactoe/widgets/paper_jitter.dart';
 
+import 'package:invisitactoe/audio/sfx.dart';                 // <- use shared SFX
 // NEW: shared logic
 import 'package:invisitactoe/game_logic/game_engine.dart';
 import 'package:invisitactoe/game_logic/two_local_controller.dart';
@@ -33,8 +35,6 @@ class _TwoPlayerPageState extends State<TwoPlayerPage> {
   final List<String> oImages = [
     'assets/images/o1.png','assets/images/o2.png','assets/images/o3.png','assets/images/o4.png',
   ];
-  final List<String> xSounds = ['audio/x_scribble_1.wav','audio/x_scribble_2.wav'];
-  final List<String> oSounds = ['audio/o_scribble_1.wav','audio/o_scribble_2.wav'];
 
   final Random _random = Random();
   String? statusImagePath;
@@ -60,22 +60,21 @@ class _TwoPlayerPageState extends State<TwoPlayerPage> {
       setState(() { opacity = 0.0; turnMessageOpacity = 1.0; });
     });
   }
+
   void _fadeTileLater(int index) {
     Timer(const Duration(milliseconds: 500), () {
       if (!mounted || controller.value.ended) return;
       setState(() => tileOpacities[index] = 0.0);
     });
   }
+
   void _revealAllTiles() {
     setState(() { for (var i=0;i<tileOpacities.length;i++) tileOpacities[i] = 1.0; });
   }
 
-  void _playXSound() async {
-    try { final p = AudioPlayer(); await p.play(AssetSource(xSounds[_random.nextInt(xSounds.length)])); Timer(const Duration(seconds:2), ()=>p.dispose()); } catch (_) {}
-  }
-  void _playOSound() async {
-    try { final p = AudioPlayer(); await p.play(AssetSource(oSounds[_random.nextInt(oSounds.length)])); Timer(const Duration(seconds:2), ()=>p.dispose()); } catch (_) {}
-  }
+  // Use shared SFX (random choice handled inside Sfx)
+  // void _playXSound() => Sfx.x();
+  // void _playOSound() => Sfx.o();
 
   void buttonPress(int index) {
     final s = controller.value;
@@ -94,9 +93,11 @@ class _TwoPlayerPageState extends State<TwoPlayerPage> {
     }
 
     // valid move
-    if (s.turn == Player.x) _playXSound(); else _playOSound();
+    if (s.turn == Player.x) {Sfx.x();} else {Sfx.o();}
+
     setState(() {
       tileOpacities[index] = 1.0;
+      // local mode: keep your random art choice
       tileImages[index] = s.turn == Player.x
         ? xImages[_random.nextInt(xImages.length)]
         : oImages[_random.nextInt(oImages.length)];
@@ -230,8 +231,9 @@ class _TwoPlayerPageState extends State<TwoPlayerPage> {
                   PaperButton(
                     onTap: resetGame,
                     child: PaperJitter(
-                                  active: s.ended,
-                                  child:Image.asset('assets/images/reset.png', height: screenWidth * 0.1),),
+                      active: s.ended, // jiggle only after game ends
+                      child: Image.asset('assets/images/reset.png', height: screenWidth * 0.1),
+                    ),
                   ),
                 ],
               ),

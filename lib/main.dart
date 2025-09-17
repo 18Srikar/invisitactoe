@@ -1,35 +1,40 @@
 import 'package:flutter/material.dart';
-import 'package:invisitactoe/screens/home_page.dart';
 import 'package:flutter/services.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:invisitactoe/audio/sfx.dart';
+import 'package:invisitactoe/screens/home_page.dart';
 import 'firebase_options.dart';
-void main() async {
+
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-    await Firebase.initializeApp(
+
+  await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Anonymous sign-in for online mode
   await FirebaseAuth.instance.signInAnonymously();
+
+  // Lock to portrait
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
-  // Let your SFX mix with Spotify/YouTube Music instead of stopping them
-  AudioPlayer.global.setAudioContext(AudioContext(
-    android: const AudioContextAndroid(
-      // “UI sounds” usage helps Android route/volume correctly
-      usageType: AndroidUsageType.game,
-      contentType: AndroidContentType.sonification,
-      // Don’t take audio focus so other apps keep playing
-      audioFocus: AndroidAudioFocus.none,
+  // ✅ Correct audioplayers 6.x global audio context
+  AudioPlayer.global.setAudioContext(
+     AudioContext(
+      android: AudioContextAndroid(
+        usageType: AndroidUsageType.game,                 // right enum
+        contentType: AndroidContentType.sonification,     // right enum
+        audioFocus: AndroidAudioFocus.none,               // mix with other apps
+      ),
+      iOS: AudioContextIOS(
+        category: AVAudioSessionCategory.playback,        // right enum
+        options: { AVAudioSessionOptions.mixWithOthers }, // set<enum> literal
+      ),
     ),
-    iOS: AudioContextIOS(
-      // Plays even if the mute switch is on; change to .ambient to respect mute
-      category: AVAudioSessionCategory.playback,
-      // The key bit: mix with other apps (don’t interrupt)
-      options: const {AVAudioSessionOptions.mixWithOthers},
-    ),
-  ));
-
+  );
+await Sfx.init();
   runApp(const MyApp());
 }
 
@@ -38,14 +43,11 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title:'InvisiTacToe',
+      title: 'InvisiTacToe',
       themeMode: ThemeMode.dark,
-      theme: ThemeData(
-        useMaterial3: true,),
-      home: const HomePage(title:'InvisiTacToe'),
+      theme: ThemeData(useMaterial3: true),
       debugShowCheckedModeBanner: false,
-      
+      home: const HomePage(title: 'InvisiTacToe'),
     );
   }
 }
-

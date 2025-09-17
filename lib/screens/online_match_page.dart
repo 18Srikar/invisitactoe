@@ -1,12 +1,14 @@
+// lib/screens/online_match_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
-import 'dart:math';
-import 'package:audioplayers/audioplayers.dart';
+
 import 'package:invisitactoe/widgets/paper_button.dart';
 import 'package:invisitactoe/widgets/background_manager.dart';
 import 'package:invisitactoe/widgets/ellipsis_banner.dart';
 import 'package:invisitactoe/widgets/paper_jitter.dart';
+import 'package:invisitactoe/audio/sfx.dart';
+
 // online controller + shared logic
 import 'package:invisitactoe/game_logic/online_controller.dart';
 import 'package:invisitactoe/game_logic/game_engine.dart';
@@ -42,10 +44,7 @@ class _OnlineMatchPageState extends State<OnlineMatchPage> {
   final List<String> oImages = [
     'assets/images/o1.png','assets/images/o2.png','assets/images/o3.png','assets/images/o4.png',
   ];
-  final List<String> xSounds = ['audio/x_scribble_1.wav','audio/x_scribble_2.wav'];
-  final List<String> oSounds = ['audio/o_scribble_1.wav','audio/o_scribble_2.wav'];
 
-  final Random _random = Random();
   String? statusImagePath;
   String? statusTextMessage;
   double statusOpacity = 1.0;
@@ -128,7 +127,7 @@ class _OnlineMatchPageState extends State<OnlineMatchPage> {
       }
     }
 
-    // Draw last move + play sound
+    // Draw last move + play sound via Sfx helper
     final lm = cur.lastMove;
     if (lm != null && (prev == null || prev.lastMove != lm)) {
       if (cur.board[lm] != Cell.empty) {
@@ -138,10 +137,11 @@ class _OnlineMatchPageState extends State<OnlineMatchPage> {
               : oImages[lm % oImages.length];
           tileOpacities[lm] = 1.0;
         });
+        // Play scribble SFX (randomized inside Sfx)
         if (cur.board[lm] == Cell.x) {
-          _playXSound();
+          Sfx.x();
         } else if (cur.board[lm] == Cell.o) {
-          _playOSound();
+          Sfx.o();
         }
         _fadeTileLater(lm);
       }
@@ -206,22 +206,6 @@ class _OnlineMatchPageState extends State<OnlineMatchPage> {
 
   void _revealAllTiles() {
     setState(() { for (var i=0;i<tileOpacities.length;i++) tileOpacities[i] = 1.0; });
-  }
-
-  void _playXSound() async {
-    try {
-      final p = AudioPlayer();
-      await p.play(AssetSource(xSounds[_random.nextInt(xSounds.length)]));
-      Timer(const Duration(seconds: 2), () => p.dispose());
-    } catch (_) {}
-  }
-
-  void _playOSound() async {
-    try {
-      final p = AudioPlayer();
-      await p.play(AssetSource(oSounds[_random.nextInt(oSounds.length)]));
-      Timer(const Duration(seconds: 2), () => p.dispose());
-    } catch (_) {}
   }
 
   void buttonPress(int index) {
@@ -330,9 +314,6 @@ class _OnlineMatchPageState extends State<OnlineMatchPage> {
         // Fixed heights to prevent layout shift
         final bannerH = screenWidth * 0.08;
         final resetH = screenWidth * 0.10;
-
-        // Reset visible only if ended AND not ended-by-leave
-        // final showReset = s.ended && !controller.endedByLeave;
 
         // Show banner ONLY when ready, not ended, and it's my turn.
         final showBanner = isReady && !s.ended && isMyTurn;
@@ -478,8 +459,8 @@ class _OnlineMatchPageState extends State<OnlineMatchPage> {
                                 onTap: _onPressReset,
                                 child: PaperJitter(
                                   active: s.ended && !controller.endedByLeave,
-                                  child: Image.asset('assets/images/reset.png', height: resetH), 
-                                  ),
+                                  child: Image.asset('assets/images/reset.png', height: resetH),
+                                ),
                               ),
                             )
                           : const SizedBox(

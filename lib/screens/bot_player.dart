@@ -1,11 +1,14 @@
+// lib/screens/bot_player.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
 import 'dart:math';
-import 'package:audioplayers/audioplayers.dart';
+
 import 'package:invisitactoe/widgets/paper_button.dart';
 import 'package:invisitactoe/widgets/background_manager.dart';
 import 'package:invisitactoe/widgets/paper_jitter.dart';
+
+import 'package:invisitactoe/audio/sfx.dart';            // <- shared SFX
 
 // Shared logic
 import 'package:invisitactoe/game_logic/game_engine.dart';
@@ -27,15 +30,13 @@ class _TicTacToePageState extends State<TicTacToePage> {
   List<double> tileOpacities = List.generate(9, (index) => 0.0);
   List<String?> tileImages = List.generate(9, (index) => null);
 
-  // Assets
+  // Assets (scribbles)
   final List<String> xImages = [
     'assets/images/x1.png','assets/images/x2.png','assets/images/x3.png','assets/images/x4.png','assets/images/x5.png',
   ];
   final List<String> oImages = [
     'assets/images/o1.png','assets/images/o2.png','assets/images/o3.png','assets/images/o4.png',
   ];
-  final List<String> xSounds = ['audio/x_scribble_1.wav','audio/x_scribble_2.wav'];
-  final List<String> oSounds = ['audio/o_scribble_1.wav','audio/o_scribble_2.wav'];
 
   final _rng = Random();
   String? statusImagePath;
@@ -62,7 +63,7 @@ class _TicTacToePageState extends State<TicTacToePage> {
     // If AI just moved, paint its scribble, play O sound, schedule fade
     final idx = s.lastMove;
     if (idx != null && s.board[idx] == Cell.o && tileImages[idx] == null) {
-      _playOSound(); // <-- play O sound exactly when we first render the AI mark
+      Sfx.o(); // play O sound exactly when first rendering the AI mark
       setState(() {
         tileOpacities[idx] = 1.0;
         tileImages[idx] = oImages[_rng.nextInt(oImages.length)];
@@ -89,23 +90,6 @@ class _TicTacToePageState extends State<TicTacToePage> {
     }
   }
 
-  // Sounds
-  void _playXSound() async {
-    try {
-      final p = AudioPlayer();
-      await p.play(AssetSource(xSounds[_rng.nextInt(xSounds.length)]));
-      Timer(const Duration(seconds: 2), () => p.dispose());
-    } catch (_) {}
-  }
-
-  void _playOSound() async {
-    try {
-      final p = AudioPlayer();
-      await p.play(AssetSource(oSounds[_rng.nextInt(oSounds.length)]));
-      Timer(const Duration(seconds: 2), () => p.dispose());
-    } catch (_) {}
-  }
-
   void buttonPress(int index) {
     final s = controller.value;
 
@@ -128,7 +112,7 @@ class _TicTacToePageState extends State<TicTacToePage> {
     }
 
     // valid human move: play X sound, show scribble, fade, then apply move
-    _playXSound();
+    Sfx.x();
     setState(() {
       tileOpacities[index] = 1.0;
       tileImages[index] = xImages[_rng.nextInt(xImages.length)];
@@ -291,14 +275,15 @@ class _TicTacToePageState extends State<TicTacToePage> {
 
                   SizedBox(height: screenWidth * 0.04),
 
-                  // Reset
+                  // Reset (jiggles only when ended)
                   PaperButton(
                     onTap: resetGame,
                     child: PaperJitter(
-                                  active: s.ended,
-                                  child:Image.asset(
-                      'assets/images/reset.png',
-                      height: screenWidth * 0.1,),
+                      active: s.ended,
+                      child: Image.asset(
+                        'assets/images/reset.png',
+                        height: screenWidth * 0.1,
+                      ),
                     ),
                   ),
                 ],

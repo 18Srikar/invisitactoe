@@ -28,7 +28,7 @@ class OnlineController extends GameController {
   bool? _xReady;
   bool? _oReady;
 
-  String? _createdBy;
+  // String? _createdBy;
   String? _leftBy;            // who left (if any)
 
   String? _systemMessage;     // one-shot system notice
@@ -354,7 +354,7 @@ class OnlineController extends GameController {
     _oUid = d['oUid'] as String?;
     _xReady = d['xReady'] as bool?;
     _oReady = d['oReady'] as bool?;
-    _createdBy = d['createdBy'] as String?;
+    // _createdBy = d['createdBy'] as String?;
     _leftBy = d['leftBy'] as String?;
     _penaltyBy = d['penaltyBy'] as String?;
 
