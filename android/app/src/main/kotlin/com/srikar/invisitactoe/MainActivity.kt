@@ -1,4 +1,4 @@
-package com.example.invisitactoe
+package com.srikar.invisitactoe
 
 import io.flutter.embedding.android.FlutterActivity
 

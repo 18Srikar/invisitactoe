@@ -24,7 +24,7 @@ class _TwoPlayerPageState extends State<TwoPlayerPage> {
 
   // UI state
   double opacity = 1;
-  int textVisibleDuration = 500;
+  int textVisibleDuration = 750;
   double turnMessageOpacity = 1.0;
   List<double> tileOpacities = List.generate(9, (index) => 0.0);
   List<String?> tileImages = List.generate(9, (index) => null);
@@ -62,7 +62,7 @@ class _TwoPlayerPageState extends State<TwoPlayerPage> {
   }
 
   void _fadeTileLater(int index) {
-    Timer(const Duration(milliseconds: 500), () {
+    Timer(const Duration(milliseconds: 600), () {
       if (!mounted || controller.value.ended) return;
       setState(() => tileOpacities[index] = 0.0);
     });

@@ -391,37 +391,38 @@ class _CodeInputArea extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Builder(
               builder: (_) {
-                if (text.isEmpty) {
-                  return Center(
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      alignment: Alignment.center,
-                      children: [
-                        Opacity(
-                          opacity: placeholderOpacity,
-                          child: Image.asset(
-                            'assets/images/enter_code_here.png',
-                            height: glyphH * 0.85,
-                          ),
-                        ),
-                        if (showCaret)
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: Transform.translate(
-                              offset: const Offset(spacing/3, 0),
-                              child: Opacity(
-                                opacity: placeholderOpacity,
-                                child: Image.asset(
-                                  'assets/images/caret.png',
-                                  height: glyphH * 0.9,
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  );
-                }
+                // Replace the placeholder section in _CodeInputArea's build method with this:
+
+if (text.isEmpty) {
+  return Center(
+    child: Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.center,
+      children: [
+        Opacity(
+          opacity: placeholderOpacity,
+          child: Image.asset(
+            'assets/images/enter_code_here.png',
+            height: glyphH * 0.85,
+          ),
+        ),
+        if (showCaret)
+          Positioned(
+            // Position caret just to the right of the placeholder text
+            // Adjust this value to move caret closer/further from text
+            left: -30, // Negative value moves it closer to the text
+            child: Opacity(
+              opacity: placeholderOpacity,
+              child: Image.asset(
+                'assets/images/caret.png',
+                height: glyphH * 0.9,
+              ),
+            ),
+          ),
+      ],
+    ),
+  );
+}
 
                 return Row(
                   mainAxisSize: MainAxisSize.min,

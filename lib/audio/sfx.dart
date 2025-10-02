@@ -10,6 +10,19 @@ class Sfx {
 
   /// Call once in main(): await Sfx.init();
   static Future<void> init() async {
+      AudioPlayer.global.setAudioContext(
+     AudioContext(
+      android: AudioContextAndroid(
+        usageType: AndroidUsageType.game,                 // right enum
+        contentType: AndroidContentType.sonification,     // right enum
+        audioFocus: AndroidAudioFocus.none,               // mix with other apps
+      ),
+      iOS: AudioContextIOS(
+        category: AVAudioSessionCategory.playback,        // right enum
+        options: { AVAudioSessionOptions.mixWithOthers }, // set<enum> literal
+      ),
+    ),
+  );
     _x = [AudioPlayer(), AudioPlayer()];
     _o = [AudioPlayer(), AudioPlayer()];
 

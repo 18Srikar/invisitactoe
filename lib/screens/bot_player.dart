@@ -8,7 +8,7 @@ import 'package:invisitactoe/widgets/paper_button.dart';
 import 'package:invisitactoe/widgets/background_manager.dart';
 import 'package:invisitactoe/widgets/paper_jitter.dart';
 
-import 'package:invisitactoe/audio/sfx.dart';            // <- shared SFX
+import 'package:invisitactoe/audio/sfx.dart'; // <- Soundpool SFX
 
 // Shared logic
 import 'package:invisitactoe/game_logic/game_engine.dart';
@@ -25,7 +25,7 @@ class _TicTacToePageState extends State<TicTacToePage> {
 
   // UI state
   double opacity = 1;
-  int textVisibleDuration = 500;
+  int textVisibleDuration = 750;
   double turnMessageOpacity = 1.0;
   List<double> tileOpacities = List.generate(9, (index) => 0.0);
   List<String?> tileImages = List.generate(9, (index) => null);
@@ -63,12 +63,12 @@ class _TicTacToePageState extends State<TicTacToePage> {
     // If AI just moved, paint its scribble, play O sound, schedule fade
     final idx = s.lastMove;
     if (idx != null && s.board[idx] == Cell.o && tileImages[idx] == null) {
-      Sfx.o(); // play O sound exactly when first rendering the AI mark
+      Sfx.o(); // Soundpool O sound
       setState(() {
         tileOpacities[idx] = 1.0;
         tileImages[idx] = oImages[_rng.nextInt(oImages.length)];
       });
-      Timer(const Duration(milliseconds: 500), () {
+      Timer(const Duration(milliseconds: 600), () {
         if (!mounted || controller.value.ended) return;
         setState(() => tileOpacities[idx] = 0.0);
       });
@@ -117,7 +117,7 @@ class _TicTacToePageState extends State<TicTacToePage> {
       tileOpacities[index] = 1.0;
       tileImages[index] = xImages[_rng.nextInt(xImages.length)];
     });
-    Timer(const Duration(milliseconds: 500), () {
+    Timer(const Duration(milliseconds: 600), () {
       if (!mounted || controller.value.ended) return;
       setState(() => tileOpacities[index] = 0.0);
     });
