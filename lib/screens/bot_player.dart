@@ -8,7 +8,7 @@ import 'package:invisitactoe/widgets/paper_button.dart';
 import 'package:invisitactoe/widgets/background_manager.dart';
 import 'package:invisitactoe/widgets/paper_jitter.dart';
 
-import 'package:invisitactoe/audio/sfx.dart'; // <- Soundpool SFX
+import 'package:invisitactoe/audio/sfx.dart'; // <- Soundpool / audioplayers SFX
 
 // Shared logic
 import 'package:invisitactoe/game_logic/game_engine.dart';
@@ -41,15 +41,60 @@ class _TicTacToePageState extends State<TicTacToePage> {
   final _rng = Random();
   String? statusImagePath;
 
+  // Timers (robustness)
+  Timer? _statusTimer;              // for transient status opacity
+  final List<Timer> _fadeTimers = []; // per-tile fade timers
+
+  // Precaching guard
+  bool _cached = false;
+
   @override
   void initState() {
     super.initState();
     controller = BotController();
     controller.addListener(_onControllerChange);
+
+    // Warm up audio (safe if already initialized elsewhere)
+    Future.microtask(() {
+      try { Sfx.init(); } catch (_) {}
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_cached) return;
+
+    // Precache images used on this screen (prevents first-use jank)
+    final toCache = <String>[
+      ...xImages,
+      ...oImages,
+      'assets/images/grid.png',
+      'assets/images/back_arrow_handwritten.png',
+      'assets/images/reset.png',
+      'assets/images/the_only_way_to_win.png',
+      'assets/images/your_move.png',
+      'assets/images/my_move.png',
+      'assets/images/you_win.png',
+      'assets/images/i_win.png',
+      'assets/images/its_a_draw.png',
+      'assets/images/invalid_move_x_loses_a_turn.png',
+      BackgroundManager.current,
+    ];
+    for (final p in toCache) {
+      precacheImage(AssetImage(p), context);
+    }
+    _cached = true;
   }
 
   @override
   void dispose() {
+    // Cancel any pending timers to avoid late UI flips
+    _statusTimer?.cancel();
+    for (final t in _fadeTimers) {
+      t.cancel();
+    }
+
     controller.removeListener(_onControllerChange);
     controller.dispose();
     super.dispose();
@@ -63,29 +108,33 @@ class _TicTacToePageState extends State<TicTacToePage> {
     // If AI just moved, paint its scribble, play O sound, schedule fade
     final idx = s.lastMove;
     if (idx != null && s.board[idx] == Cell.o && tileImages[idx] == null) {
-      Sfx.o(); // Soundpool O sound
+      Sfx.o();
       setState(() {
         tileOpacities[idx] = 1.0;
         tileImages[idx] = oImages[_rng.nextInt(oImages.length)];
       });
-      Timer(const Duration(milliseconds: 600), () {
+      final t = Timer(const Duration(milliseconds: 600), () {
         if (!mounted || controller.value.ended) return;
         setState(() => tileOpacities[idx] = 0.0);
       });
+      _fadeTimers.add(t);
     }
 
     // If game ended, reveal all tiles and show status banner
     if (s.ended) {
+      // Lock in the end banner; ensure no earlier status timer can hide it
+      _statusTimer?.cancel();
       setState(() {
         statusImagePath = s.winner == Player.x
-            ? 'assets/images/x_wins_o_loses.png'
+            ? 'assets/images/you_win.png'
             : s.winner == Player.o
-                ? 'assets/images/o_wins_x_loses.png'
+                ? 'assets/images/i_win.png'
                 : 'assets/images/its_a_draw.png';
         turnMessageOpacity = 0.0;
         for (int i = 0; i < tileOpacities.length; i++) {
           tileOpacities[i] = 1.0;
         }
+        opacity = 1.0; // keep the end banner visible
       });
     }
   }
@@ -99,14 +148,20 @@ class _TicTacToePageState extends State<TicTacToePage> {
     // invalid move -> human loses a turn and AI moves
     if (s.board[index] != Cell.empty) {
       HapticFeedback.vibrate();
+
+      // Cancel any existing status timer so it can't override later states
+      _statusTimer?.cancel();
+
       setState(() {
         statusImagePath = 'assets/images/invalid_move_x_loses_a_turn.png';
         opacity = 1.0;
       });
-      Timer(Duration(milliseconds: textVisibleDuration), () {
-        if (!mounted) return;
+
+      _statusTimer = Timer(Duration(milliseconds: textVisibleDuration), () {
+        if (!mounted || controller.value.ended) return;
         setState(() => opacity = 0.0);
       });
+
       controller.forfeitHumanTurnAndAiMove();
       return;
     }
@@ -117,15 +172,23 @@ class _TicTacToePageState extends State<TicTacToePage> {
       tileOpacities[index] = 1.0;
       tileImages[index] = xImages[_rng.nextInt(xImages.length)];
     });
-    Timer(const Duration(milliseconds: 600), () {
+    final t = Timer(const Duration(milliseconds: 600), () {
       if (!mounted || controller.value.ended) return;
       setState(() => tileOpacities[index] = 0.0);
     });
+    _fadeTimers.add(t);
 
     controller.playHuman(index);
   }
 
   void resetGame() {
+    // Clean up any queued animations/timers so they can't flip the new round's UI
+    _statusTimer?.cancel();
+    for (final t in _fadeTimers) {
+      t.cancel();
+    }
+    _fadeTimers.clear();
+
     controller.reset();
     setState(() {
       tileOpacities = List.generate(9, (_) => 0.0);

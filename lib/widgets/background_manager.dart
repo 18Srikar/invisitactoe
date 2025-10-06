@@ -7,6 +7,8 @@ class BackgroundManager {
     'assets/images/notebook_bg_3.jpg',
     'assets/images/notebook_bg_4.jpg',
     'assets/images/notebook_bg_5.jpg',
+    'assets/images/notebook_bg_6.jpg',
+
 
   ];
 
