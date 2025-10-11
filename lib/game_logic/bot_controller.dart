@@ -42,7 +42,7 @@ class BotController extends ChangeNotifier implements ValueListenable<GameState>
 
   Future<void> _aiTurn() async {
     _busy = true;
-    await Future<void>.delayed(const Duration(milliseconds: 500));
+    await Future<void>.delayed(const Duration(milliseconds: 1000));
 
     final idx = _bestMove(_state.board);
     final afterAi = GameEngine.place(_state, idx);

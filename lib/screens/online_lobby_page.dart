@@ -203,13 +203,27 @@ class _OnlineLobbyPageState extends State<OnlineLobbyPage> with SingleTickerProv
     }
   }
 
-  void _bumpJoin() {
-    HapticFeedback.vibrate();
-    if (_shake.status == AnimationStatus.forward || _shake.status == AnimationStatus.reverse) {
-      _shake.stop();
-    }
-    _shake.forward(from: 0);
+void _bumpJoin() {
+  HapticFeedback.vibrate();
+
+  // 🔽 ensure the hidden TextField is focused AND the keyboard is visible
+  if (!_focus.hasFocus) {
+    FocusScope.of(context).requestFocus(_focus);
+    // Give the framework a beat to attach focus, then show the keyboard
+    Future.microtask(() {
+      SystemChannels.textInput.invokeMethod('TextInput.show');
+    });
+  } else {
+    // It already has focus (common after back gesture) → force-show IME
+    SystemChannels.textInput.invokeMethod('TextInput.show');
   }
+
+  if (_shake.status == AnimationStatus.forward || _shake.status == AnimationStatus.reverse) {
+    _shake.stop();
+  }
+  _shake.forward(from: 0);
+}
+
 
   // Returns true only when user taps OK. Back/outside => false.
   Future<bool> _showShareOverlay(String code) async {
@@ -274,7 +288,7 @@ class _OnlineLobbyPageState extends State<OnlineLobbyPage> with SingleTickerProv
             left: 25,
             child: PaperButton(
               onTap: () => Navigator.pop(context),
-              child: Image.asset('assets/images/back_arrow_handwritten.png', width: 40, height: 40),
+              child: Image.asset('assets/images/back_arrow_handwritten.png', width: 35, height: 35),
             ),
           ),
 
@@ -338,7 +352,7 @@ class _OnlineLobbyPageState extends State<OnlineLobbyPage> with SingleTickerProv
                         opacity: busy ? 1.0 : 0.0,
                         duration: const Duration(milliseconds: 150),
                         curve: Curves.easeInOut,
-                        child: const _BusyDotsFixed(dotSize: 8, gap: 5),
+                        child: const _BusyDotsFixed(dotSize: 5, gap: 4),
                       ),
                     ),
                   ],
@@ -375,7 +389,7 @@ class _CodeInputArea extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = controller.text.toUpperCase();
-    final glyphH = height * 0.8;
+    final glyphH = height * 0.65;
     const spacing = 1.0;
     const double placeholderOpacity = 0.4;
 
@@ -387,61 +401,78 @@ class _CodeInputArea extends StatelessWidget {
       child: Stack(
         alignment: Alignment.centerLeft,
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Builder(
-              builder: (_) {
-                // Replace the placeholder section in _CodeInputArea's build method with this:
-
-if (text.isEmpty) {
-  return Center(
-    child: Stack(
-      clipBehavior: Clip.none,
-      alignment: Alignment.center,
-      children: [
-        Opacity(
-          opacity: placeholderOpacity,
-          child: Image.asset(
-            'assets/images/enter_code_here.png',
-            height: glyphH * 0.85,
-          ),
-        ),
-        if (showCaret)
-          Positioned(
-            // Position caret just to the right of the placeholder text
-            // Adjust this value to move caret closer/further from text
-            left: -30, // Negative value moves it closer to the text
-            child: Opacity(
-              opacity: placeholderOpacity,
-              child: Image.asset(
-                'assets/images/caret.png',
-                height: glyphH * 0.9,
+Align(
+  alignment: Alignment.center,
+  child: Builder(
+    builder: (_) {
+      if (text.isEmpty) {
+        return Center(
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              Opacity(
+                opacity: placeholderOpacity,
+                child: Image.asset(
+                  'assets/images/enter_code_here.png',
+                  height: glyphH * 0.75,
+                ),
               ),
-            ),
+              if (showCaret)
+                Positioned(
+                  left: -30,
+                  child: Opacity(
+                    opacity: placeholderOpacity,
+                    child: Image.asset(
+                      'assets/images/caret.png',
+                      height: glyphH,
+                    ),
+                  ),
+                ),
+            ],
           ),
-      ],
-    ),
-  );
-}
+        );
+      }
 
-                return Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _GlyphRow(text: text, height: glyphH, spacing: spacing),
-                    if (showCaret) ...[
-                      const SizedBox(width: spacing),
-                      Image.asset('assets/images/caret.png', height: glyphH * 0.9),
-                    ],
-                  ],
-                );
-              },
-            ),
-          ),
+final caretH = glyphH ;
+// Pick a stable caret width. If your caret is ~1:4 (w:h), 0.22–0.26*h looks right.
+final caretW = caretH ;
+
+return Row(
+  mainAxisSize: MainAxisSize.min,
+  mainAxisAlignment: MainAxisAlignment.center,
+  children: [
+    _GlyphRow(text: text, height: glyphH, spacing: spacing),
+    const SizedBox(width: spacing),
+    SizedBox(
+      height: caretH,
+      width: caretW,
+      child: AnimatedOpacity(
+        opacity: showCaret ? 1.0 : 0.0,
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeInOut,
+        child: FittedBox(
+          fit: BoxFit.contain,
+          child: Image.asset('assets/images/caret.png'),
+        ),
+      ),
+    ),
+  ],
+);
+
+    },
+  ),
+),
+
           TextField(
             controller: controller,
             focusNode: focusNode,
             textCapitalization: TextCapitalization.characters,
             textInputAction: TextInputAction.done,
+            showCursor: false,
+            enableInteractiveSelection: false,
+            contextMenuBuilder: (context, state) => const SizedBox.shrink(), // no copy/paste menu
+            magnifierConfiguration: TextMagnifierConfiguration.disabled,
             onSubmitted: (_) => FocusScope.of(context).unfocus(),
             style: const TextStyle(color: Colors.transparent, height: 1.0),
             cursorColor: Colors.transparent,
@@ -469,7 +500,7 @@ class _GlyphRow extends StatelessWidget {
   const _GlyphRow({
     required this.text,
     required this.height,
-    this.spacing = 6,
+    this.spacing = 5,
   });
 
   final String text;
@@ -547,12 +578,12 @@ class _ShareCodeCard extends StatelessWidget {
                       children: [
                         PaperButton(
                           onTap: onCopy,
-                          child: Image.asset('assets/images/copy.png', height: screenW * 0.08),
+                          child: Image.asset('assets/images/copy.png', height: screenW * 0.16),
                         ),
-                        SizedBox(width: screenW * 0.11),
+                        SizedBox(width: screenW * 0.2),
                         PaperButton(
                           onTap: onProceed,
-                          child: Image.asset('assets/images/ok.png', height: screenW * 0.09),
+                          child: Image.asset('assets/images/ok.png', height: screenW * 0.16),
                         ),
                       ],
                     ),
@@ -620,7 +651,7 @@ class _BusyDotsFixedState extends State<_BusyDotsFixed> {
           curve: Curves.easeInOut,
           child: FittedBox(
             fit: BoxFit.contain,
-            child: Image.asset('assets/images/dot$index.png'),
+            child: Image.asset('assets/images/dot$index.png',),
           ),
         ),
       );

@@ -7,6 +7,7 @@ import 'dart:math';
 import 'package:invisitactoe/widgets/paper_button.dart';
 import 'package:invisitactoe/widgets/background_manager.dart';
 import 'package:invisitactoe/widgets/paper_jitter.dart';
+import 'package:invisitactoe/widgets/win_strike.dart'; // ← ADDED
 
 import 'package:invisitactoe/audio/sfx.dart'; // <- Soundpool / audioplayers SFX
 
@@ -32,10 +33,10 @@ class _TicTacToePageState extends State<TicTacToePage> {
 
   // Assets (scribbles)
   final List<String> xImages = [
-    'assets/images/x1.png','assets/images/x2.png','assets/images/x3.png','assets/images/x4.png','assets/images/x5.png',
+    'assets/images/x1.png','assets/images/x2.png','assets/images/x3.png','assets/images/x4.png','assets/images/x5.png', 'assets/images/x7.png','assets/images/x6.png',
   ];
   final List<String> oImages = [
-    'assets/images/o1.png','assets/images/o2.png','assets/images/o3.png','assets/images/o4.png',
+    'assets/images/o1.png','assets/images/o2.png','assets/images/o3.png','assets/images/o4.png','assets/images/o6.png',
   ];
 
   final _rng = Random();
@@ -44,6 +45,10 @@ class _TicTacToePageState extends State<TicTacToePage> {
   // Timers (robustness)
   Timer? _statusTimer;              // for transient status opacity
   final List<Timer> _fadeTimers = []; // per-tile fade timers
+
+  // NEW: dots banner timer state (no layout shift)
+  Timer? _dotsTimer;
+  int _dotsStep = 0;   // 0..2 => 1..3 dots visible
 
   // Precaching guard
   bool _cached = false;
@@ -74,11 +79,15 @@ class _TicTacToePageState extends State<TicTacToePage> {
       'assets/images/reset.png',
       'assets/images/the_only_way_to_win.png',
       'assets/images/your_move.png',
-      'assets/images/my_move.png',
+      'assets/images/my_move.png', // kept even if not shown when bot turn
       'assets/images/you_win.png',
       'assets/images/i_win.png',
       'assets/images/its_a_draw.png',
       'assets/images/invalid_move_x_loses_a_turn.png',
+      // dots used for the bot-turn banner
+      'assets/images/dot1.png',
+      'assets/images/dot2.png',
+      'assets/images/dot3.png',
       BackgroundManager.current,
     ];
     for (final p in toCache) {
@@ -94,6 +103,7 @@ class _TicTacToePageState extends State<TicTacToePage> {
     for (final t in _fadeTimers) {
       t.cancel();
     }
+    _dotsTimer?.cancel();
 
     controller.removeListener(_onControllerChange);
     controller.dispose();
@@ -124,18 +134,42 @@ class _TicTacToePageState extends State<TicTacToePage> {
     if (s.ended) {
       // Lock in the end banner; ensure no earlier status timer can hide it
       _statusTimer?.cancel();
+      // Stop dots when game is over
+      _dotsTimer?.cancel();
+      _dotsTimer = null;
+
       setState(() {
         statusImagePath = s.winner == Player.x
             ? 'assets/images/you_win.png'
             : s.winner == Player.o
                 ? 'assets/images/i_win.png'
-                : 'assets/images/its_a_draw.png';
+                : 'assets/images/you_win.png';
         turnMessageOpacity = 0.0;
         for (int i = 0; i < tileOpacities.length; i++) {
           tileOpacities[i] = 1.0;
         }
         opacity = 1.0; // keep the end banner visible
+        _dotsStep = 0; 
       });
+    } else {
+      // Keep the dots animating only while it's the bot's turn
+      final isHumanTurn = s.turn == Player.x;
+      _ensureDotsRunning(run: !isHumanTurn);
+    }
+  }
+
+  // Ensure three-dot banner is ticking when bot's turn; pause otherwise
+  void _ensureDotsRunning({required bool run}) {
+    if (run) {
+      if (_dotsTimer == null) {
+        _dotsTimer = Timer.periodic(const Duration(milliseconds: 300), (_) {
+          if (!mounted) return;
+          setState(() => _dotsStep = (_dotsStep + 1) % 3);
+        });
+      }
+    } else {
+      _dotsTimer?.cancel();
+      _dotsTimer = null;
     }
   }
 
@@ -188,6 +222,8 @@ class _TicTacToePageState extends State<TicTacToePage> {
       t.cancel();
     }
     _fadeTimers.clear();
+    _dotsTimer?.cancel();
+    _dotsTimer = null;
 
     controller.reset();
     setState(() {
@@ -196,6 +232,7 @@ class _TicTacToePageState extends State<TicTacToePage> {
       statusImagePath = null;
       turnMessageOpacity = 1.0;
       opacity = 1.0;
+      _dotsStep = 0;
     });
   }
 
@@ -207,11 +244,20 @@ class _TicTacToePageState extends State<TicTacToePage> {
         final s = controller.value;
         final isHumanTurn = s.turn == Player.x; // human is X
 
+        // Ensure dots run only on bot turn while not ended
+        _ensureDotsRunning(run: !isHumanTurn && !s.ended);
+
         // Responsive sizes
         final screenWidth = MediaQuery.of(context).size.width;
         final boardSize = screenWidth * 0.9;
         final tileSize = boardSize / 3;
         final safeTop = MediaQuery.of(context).padding.top;
+
+        // Fixed banner height to avoid layout shift
+        final bannerH = screenWidth * 0.09;
+
+        // ← ADDED: compute winning strike (if any)
+        final win = s.ended ? findWin(s.board) : null;
 
         return Stack(
           children: <Widget>[
@@ -236,8 +282,8 @@ class _TicTacToePageState extends State<TicTacToePage> {
                 onTap: () => Navigator.pop(context),
                 child: Image.asset(
                   'assets/images/back_arrow_handwritten.png',
-                  width: 40,
-                  height: 40,
+                  width: 35,
+                  height: 35,
                 ),
               ),
             ),
@@ -253,16 +299,32 @@ class _TicTacToePageState extends State<TicTacToePage> {
                   ),
                   SizedBox(height: screenWidth * 0.05),
 
-                  // Turn banner
-                  AnimatedOpacity(
-                    opacity: turnMessageOpacity,
-                    duration: const Duration(milliseconds: 750),
-                    curve: Curves.easeIn,
-                    child: Image.asset(
-                      isHumanTurn
-                          ? 'assets/images/your_move.png'
-                          : 'assets/images/my_move.png',
-                      height: screenWidth * 0.09,
+                  // Turn banner (fixed-height slot → NO LAYOUT SHIFT)
+                  SizedBox(
+                    height: bannerH,
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      switchInCurve: Curves.easeOut,
+                      switchOutCurve: Curves.easeIn,
+                      child: isHumanTurn
+                          ? Align(
+                              key: const ValueKey('human-turn'),
+                              alignment: Alignment.center,
+                              child: AnimatedOpacity(
+                                opacity: turnMessageOpacity,
+                                duration: const Duration(milliseconds: 750),
+                                curve: Curves.easeIn,
+                                child: Image.asset(
+                                  'assets/images/your_move.png',
+                                  height: bannerH,
+                                ),
+                              ),
+                            )
+                          : _DotsBanner(
+                              key: const ValueKey('bot-dots'),
+                              height: bannerH,
+                              step: _dotsStep, // 0..2 -> shows 1..3 dots
+                            ),
                     ),
                   ),
                   SizedBox(height: screenWidth * 0.03),
@@ -333,6 +395,13 @@ class _TicTacToePageState extends State<TicTacToePage> {
                           },
                         ),
                       ),
+                      // ← ADDED: handwritten strike overlay (fades in to match tiles)
+                      if (win != null)
+                        WinStrike(
+                          info: win,
+                          boardSize: boardSize,
+                          durationMs: textVisibleDuration, // match reveal timing
+                        ),
                     ],
                   ),
 
@@ -355,6 +424,42 @@ class _TicTacToePageState extends State<TicTacToePage> {
           ],
         );
       },
+    );
+  }
+}
+
+// Lightweight three-dot banner for bot turn; fixed height → no layout shift.
+class _DotsBanner extends StatelessWidget {
+  const _DotsBanner({super.key, required this.height, required this.step});
+
+  final double height;
+  final int step; // 0..2 -> number of dots = step+1
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleDots = step + 1; // 1..3
+    final dotSize = height * 0.15; // ~15% of banner height
+    const spacing = 6.0;
+
+    Widget dot(String asset, bool on) => AnimatedOpacity(
+          opacity: on ? 1.0 : 0.0,
+          duration: const Duration(milliseconds: 150),
+          curve: Curves.easeInOut,
+          child: Image.asset(asset, height: dotSize),
+        );
+
+    return SizedBox(
+      height: height,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          dot('assets/images/dot1.png', visibleDots >= 1),
+          SizedBox(width: spacing),
+          dot('assets/images/dot2.png', visibleDots >= 2),
+          SizedBox(width: spacing),
+          dot('assets/images/dot3.png', visibleDots >= 3),
+        ],
+      ),
     );
   }
 }

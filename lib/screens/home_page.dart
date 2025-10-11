@@ -78,7 +78,7 @@ class _HomePageState extends State<HomePage> {
                   },
                   child: PaperJitter(
                         active: true,                // always jitter on Home
-    amplitude: 2.0,              // ~±2px like before
+    amplitude: 1.5,              // ~±2px like before
     period: const Duration(milliseconds: 301),
                     child: Image.asset(
                       'assets/images/btn_two_player.png',
@@ -100,7 +100,7 @@ class _HomePageState extends State<HomePage> {
                   },
                   child: PaperJitter(
                     active: true,                // always jitter on Home
-                    amplitude: 2.0,              // ~±2px like before
+                    amplitude: 1.5,              // ~±2px like before
                     period: const Duration(milliseconds: 300),
                     child: Image.asset(
                       'assets/images/btn_bot_mode.png',
@@ -120,11 +120,11 @@ class _HomePageState extends State<HomePage> {
                   },
                   child: PaperJitter(
                         active: true,                // always jitter on Home
-    amplitude: 2.0,              // ~±2px like before
+    amplitude: 1.5,              // ~±2px like before
     period: const Duration(milliseconds: 299),
                     child: Image.asset(
                       'assets/images/online_mode.png',
-                      width: screenWidth * 0.35,
+                      width: screenWidth * 0.36,
                       fit: BoxFit.contain,
                     ),
                   ),

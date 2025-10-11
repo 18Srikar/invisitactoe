@@ -8,6 +8,7 @@ import 'package:invisitactoe/widgets/background_manager.dart';
 import 'package:invisitactoe/widgets/ellipsis_banner.dart';
 import 'package:invisitactoe/widgets/paper_jitter.dart';
 import 'package:invisitactoe/audio/sfx.dart';
+import 'package:invisitactoe/widgets/win_strike.dart'; // ← ADDED
 
 // online controller + shared logic
 import 'package:invisitactoe/game_logic/online_controller.dart';
@@ -39,10 +40,10 @@ class _OnlineMatchPageState extends State<OnlineMatchPage> {
   List<String?> tileImages = List.generate(9, (index) => null);
 
   final List<String> xImages = [
-    'assets/images/x1.png','assets/images/x2.png','assets/images/x3.png','assets/images/x4.png','assets/images/x5.png',
+    'assets/images/x1.png','assets/images/x2.png','assets/images/x3.png','assets/images/x4.png','assets/images/x5.png', 'assets/images/x7.png','assets/images/x6.png',
   ];
   final List<String> oImages = [
-    'assets/images/o1.png','assets/images/o2.png','assets/images/o3.png','assets/images/o4.png',
+    'assets/images/o1.png','assets/images/o2.png','assets/images/o3.png','assets/images/o4.png','assets/images/o6.png',
   ];
 
   String? statusImagePath;
@@ -322,6 +323,9 @@ class _OnlineMatchPageState extends State<OnlineMatchPage> {
         final showOpponentDots = isReady && !s.ended && !isMyTurn;
         _setDotsActive(showOpponentDots && mounted);
 
+        // ← ADDED: compute winning strike (both phones see same board snapshot)
+        final win = (s.ended && !controller.endedByLeave) ? findWin(s.board) : null;
+
         return Stack(
           children: <Widget>[
             Positioned.fill(
@@ -439,6 +443,13 @@ class _OnlineMatchPageState extends State<OnlineMatchPage> {
                             },
                           ),
                         ),
+                        // ← ADDED: handwritten strike overlay (fades in to match tiles)
+                        if (win != null)
+                          WinStrike(
+                            info: win,
+                            boardSize: boardSize,
+                            durationMs: textVisibleDuration, // match reveal timing
+                          ),
                       ],
                     ),
                   ),
@@ -489,7 +500,7 @@ class _OnlineMatchPageState extends State<OnlineMatchPage> {
                         ],
                         height: screenWidth * 0.1,
                         step: const Duration(milliseconds: 300),
-                        dotScale: 0.20,
+                        dotScale: 0.10,
                         spacing: 6,
                         dotsBelow: false,
                       ),
@@ -507,7 +518,7 @@ class _OnlineMatchPageState extends State<OnlineMatchPage> {
                   try { await controller.leave(); } catch (_) {}
                   if (mounted) Navigator.pop(context);
                 },
-                child: Image.asset('assets/images/back_arrow_handwritten.png', width: 40, height: 40),
+                child: Image.asset('assets/images/back_arrow_handwritten.png', width: 35, height: 35),
               ),
             ),
           ],
@@ -527,8 +538,8 @@ class _DotsBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final visibleDots = step + 1; // 1..3
-    final dotSize = height * 0.22; // ~22% of banner height
+    final visibleDots = step + 1; 
+    final dotSize = height * 0.19; 
     const spacing = 6.0;
 
     Widget dot(String asset, bool on) => AnimatedOpacity(

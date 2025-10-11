@@ -7,6 +7,7 @@ import 'dart:math';
 import 'package:invisitactoe/widgets/paper_button.dart';
 import 'package:invisitactoe/widgets/background_manager.dart';
 import 'package:invisitactoe/widgets/paper_jitter.dart';
+import 'package:invisitactoe/widgets/win_strike.dart'; // ← ADDED
 
 import 'package:invisitactoe/audio/sfx.dart';                 // shared SFX
 // Shared logic
@@ -30,10 +31,10 @@ class _TwoPlayerPageState extends State<TwoPlayerPage> {
   List<String?> tileImages = List.generate(9, (index) => null);
 
   final List<String> xImages = [
-    'assets/images/x1.png','assets/images/x2.png','assets/images/x3.png','assets/images/x4.png','assets/images/x5.png',
+    'assets/images/x1.png','assets/images/x2.png','assets/images/x3.png','assets/images/x4.png','assets/images/x5.png', 'assets/images/x7.png','assets/images/x6.png',
   ];
   final List<String> oImages = [
-    'assets/images/o1.png','assets/images/o2.png','assets/images/o3.png','assets/images/o4.png',
+    'assets/images/o1.png','assets/images/o2.png','assets/images/o3.png','assets/images/o4.png','assets/images/o6.png',
   ];
 
   final Random _random = Random();
@@ -217,6 +218,9 @@ class _TwoPlayerPageState extends State<TwoPlayerPage> {
         final tileSize = boardSize / 3;
         final safeTop = MediaQuery.of(context).padding.top;
 
+        // ← ADDED: compute win strike once per build
+        final win = s.ended ? findWin(s.board) : null;
+
         return Stack(
           children: <Widget>[
             Positioned.fill(
@@ -231,7 +235,7 @@ class _TwoPlayerPageState extends State<TwoPlayerPage> {
               top: safeTop + 12, left: 25,
               child: PaperButton(
                 onTap: () => Navigator.pop(context),
-                child: Image.asset('assets/images/back_arrow_handwritten.png', width: 40, height: 40),
+                child: Image.asset('assets/images/back_arrow_handwritten.png', width: 35, height: 35),
               ),
             ),
             Center(
@@ -297,6 +301,10 @@ class _TwoPlayerPageState extends State<TwoPlayerPage> {
                           },
                         ),
                       ),
+                      // ← ADDED: handwritten strike overlay when there’s a winner
+                      if (win != null)
+                        WinStrike(info: win, boardSize: boardSize, durationMs: textVisibleDuration,),
+                        
                     ],
                   ),
                   SizedBox(height: screenWidth * 0.04),

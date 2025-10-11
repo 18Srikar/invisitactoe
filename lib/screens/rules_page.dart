@@ -24,7 +24,7 @@ class RulesPage extends StatelessWidget {
           Center(
             child: Image.asset(
               'assets/images/rules_overlay.png',
-              width: screenWidth * 0.85,
+              width: screenWidth * 0.9,
               fit: BoxFit.contain,
             ),
           ),
@@ -37,8 +37,8 @@ class RulesPage extends StatelessWidget {
               onTap: () => Navigator.pop(context),
               child: Image.asset(
                 'assets/images/back_arrow_handwritten.png',
-                width: 40,
-                height: 40,
+                width: 35,
+                height: 35,
               ),
             ),
           ),
